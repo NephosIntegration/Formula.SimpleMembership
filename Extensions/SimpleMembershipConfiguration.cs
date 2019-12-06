@@ -31,7 +31,7 @@ namespace Formula.SimpleMembership
             */
         };
 
-        public static void AddSimpleMembership(this IServiceCollection services, IConfiguration configuration, String migrationAssembly)
+        public static IServiceCollection AddSimpleMembership(this IServiceCollection services, IConfiguration configuration, String migrationAssembly)
         {
 
             bool useInMemoryAuthProvider = bool.Parse(configuration.GetValue<String>("InMemoryAuthProvider"));
@@ -65,6 +65,8 @@ namespace Formula.SimpleMembership
             });
 
             services.AddScoped<IDbInitializer, DbInitializer> ();
+
+            return services;
         }
     }
 }
