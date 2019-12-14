@@ -6,16 +6,33 @@ Easy localy stored membership based authentication
   - services.AddSimpleMembership(this.Configuration, typeof(Startup).Assembly.GetName().Name);
 - Run the migrations
 
+### Configuring Stores and Migrations
+To run without a persistent data store, you may run all operations in memory by setting 
+InMemoryAuthProvider to true in the appSettings.
+
+To work with persistent storage this must be set to false, and a connectionName (as also specified in the appSettings), might optionally be passed as a parameter to AddSimpleMembership (default connection string is DefaultConnection).
+
+#### Running Migrations
+To build and run migrations you must install the EF Core CLI tool on your machine, and add the Microsoft.EntityFrameworkCore.Design package to your project.
+
 ```bash
 dotnet tool install --global dotnet-ef
-dotnet ef migrations add AspNetIdentity -c IdentityDbContext -o Data/Migrations/SimpleMembership
-dotnet ef database update
+dotnet add package Microsoft.EntityFrameworkCore.Design
 ```
+
+To generate the migrations in your project run;
+
+```bash
+dotnet ef migrations add InitialAspNetIdentityDbMigration --context Formula.SimpleMembership.SimpleMembershipDbContext --output-dir Data/Migrations/SimpleMembership/IdentityDb
+dotnet ef database update --context Formula.SimpleMembership.SimpleMembershipDbContext
+```
+
+If you installed your migrations a different project, you may specify the "migrationsAssembly", as a parameter to AddSimpleMembership.
 
 ## Using the Account Controller
 
 ### Registration
-Registration can be performed by posting to https://localhost:5001/account/register
+Registration can be performed by posting to https://localhost:5001/user/register
 with the following body.
 
 ```JSON
@@ -28,7 +45,7 @@ with the following body.
 ```
 
 ###  Login
-Login can be performed by posting to https://localhost:5001/account/login
+Login can be performed by posting to https://localhost:5001/user/login
 with the following body.
 
 ```JSON

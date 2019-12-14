@@ -31,26 +31,29 @@ namespace Formula.SimpleMembership
             */
         };
 
-        public static IServiceCollection AddSimpleMembership(this IServiceCollection services, IConfiguration configuration, String migrationAssembly)
+        public static IServiceCollection AddSimpleMembership(this IServiceCollection services, IConfiguration configuration, String migrationsAssembly, String connectionName = "DefaultConnection")
         {
 
             bool useInMemoryAuthProvider = bool.Parse(configuration.GetValue<String>("InMemoryAuthProvider"));
 
-            services.AddDbContext<IdentityDbContext>(options => {
-                if (!useInMemoryAuthProvider) {
-                    options.UseSqlServer(configuration.GetConnectionString("DefaultConnection"),
+            if (useInMemoryAuthProvider) {
+                services.AddDbContext<SimpleMembershipDbContext>(options => {
+                    options.UseInMemoryDatabase(connectionName);
+                });
+            }
+            else {
+                services.AddDbContext<SimpleMembershipDbContext>(options => {
+                    options.UseSqlServer(configuration.GetConnectionString(connectionName),
                         optionsBuilder => 
-                        optionsBuilder.MigrationsAssembly(migrationAssembly));
-                }
-                else {
-                    options.UseInMemoryDatabase("DefaultConnection");
-                }
-            });
-            
-            services.AddIdentity<IdentityUser, IdentityRole> ()
-                .AddEntityFrameworkStores<IdentityDbContext> ()
-                .AddDefaultTokenProviders ();
+                        optionsBuilder.MigrationsAssembly(migrationsAssembly));
+                });
+            }
 
+            services.AddIdentity<ApplicationUser, IdentityRole> ()
+                .AddEntityFrameworkStores<SimpleMembershipDbContext> ()
+                .AddDefaultTokenProviders();
+
+/*
             services.ConfigureApplicationCookie (options => {
                 options.Events.OnRedirectToLogin = context => {
                     context.Response.Headers["Location"] = context.RedirectUri;
@@ -65,6 +68,7 @@ namespace Formula.SimpleMembership
             });
 
             services.AddScoped<IDbInitializer, DbInitializer> ();
+*/
 
             return services;
         }

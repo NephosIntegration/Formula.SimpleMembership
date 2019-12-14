@@ -11,11 +11,11 @@ using Microsoft.AspNetCore.Mvc;
 namespace Formula.SimpleMembership
 {
     [Route("[controller]/[action]")]
-    public class AccountController : Controller {
-        private readonly UserManager<IdentityUser> _userManager;
-        private readonly SignInManager<IdentityUser> _signInManager;
+    public class UserController : Controller {
+        private readonly UserManager<ApplicationUser> _userManager;
+        private readonly SignInManager<ApplicationUser> _signInManager;
 
-        public AccountController (UserManager<IdentityUser> userManager, SignInManager<IdentityUser> signInManager) {
+        public UserController (UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager) {
             _userManager = userManager;
             _signInManager = signInManager;
         }
@@ -34,7 +34,7 @@ namespace Formula.SimpleMembership
                     };
                 }
 
-                user = new IdentityUser {
+                user = new ApplicationUser {
                     Id = Guid.NewGuid ().ToString (),
                     UserName = model.UserName,
                     Email = model.Email
@@ -76,11 +76,11 @@ namespace Formula.SimpleMembership
         [HttpPost]
         public async Task<ResultVM> Login ([FromBody] LoginVM model) {
             if (ModelState.IsValid) {
-                var user = await _userManager.FindByNameAsync (model.UserName);
+                var user = await _userManager.FindByNameAsync(model.UserName);
 
-                if (user != null && await _userManager.CheckPasswordAsync (user, model.Password)) {
+                if (user != null && await _userManager.CheckPasswordAsync(user, model.Password)) {
 
-                    await _signInManager.PasswordSignInAsync (model.UserName, model.Password, true, lockoutOnFailure : false);
+                    await _signInManager.PasswordSignInAsync(model.UserName, model.Password, true, lockoutOnFailure : false);
 
                     return new ResultVM {
                         Status = ResultStatus.Success,

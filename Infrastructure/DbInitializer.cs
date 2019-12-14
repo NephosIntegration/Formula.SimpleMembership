@@ -15,11 +15,11 @@ namespace Formula.SimpleMembership
 
     public class DbInitializer : IDbInitializer
     {
-        private readonly IdentityDbContext _context;
+        private readonly SimpleMembershipDbContext _context;
         private readonly RoleManager<IdentityRole> _roleManager;
 
         public DbInitializer(
-            IdentityDbContext context,
+            SimpleMembershipDbContext context,
             RoleManager<IdentityRole> roleManager)
         {
             _context = context;
