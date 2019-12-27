@@ -85,29 +85,9 @@ namespace Formula.SimpleMembership
 
         [HttpPost]
         [Authorize]
-        public async Task<ResultVM> GenerateRecoveryCodes()
+        public Task<StatusBuilder> GenerateRecoveryCodes()
         {
-            var user = await _twoFactorService.GetUserManager().GetUserAsync(User);
-
-            var isTwoFactorEnabled = await _twoFactorService.GetUserManager().GetTwoFactorEnabledAsync(user);
-
-            if (!isTwoFactorEnabled)
-            {
-                return new ResultVM
-                {
-                    Status = ResultStatus.Error,
-                    Message = "Cannot generate recovery codes as you do not have 2FA enabled"
-                };
-            }
-
-            var recoveryCodes = await _twoFactorService.GetUserManager().GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
-
-            return new ResultVM
-            {
-                Status = ResultStatus.Success,
-                Message = "You have generated new recovery codes",
-                Data = new { recoveryCodes }
-            };
+            return _twoFactorService.GenerateRecoveryCodes(User);
         }
 
         /// <summary>
@@ -121,49 +101,29 @@ namespace Formula.SimpleMembership
 
         [HttpPost]
         //public async Task<ResultVM> Login(TwoFactorLoginVM model, string button)
-        public async Task<IActionResult> Login(TwoFactorLoginDetails model, string button)
+        public async Task<StatusBuilder> Login(TwoFactorLoginDetails model, string button)
         {
-            if (ModelState.IsValid)
+            var results = this.HandleModelState();
+
+            if (results.IsSuccessful) 
             {
-                var result = await TwoFaLogin(model.TwoFactorCode, isRecoveryCode: false, model.RememberMachine);
-                if (result.Status == ResultStatus.Success) 
-                {
-                    return Redirect("~/");
-                }
-                else
-                {
-                    ModelState.AddModelError(string.Empty, result.Message);
-                }
+                results = await _twoFactorService.TwoFaLogin(model.TwoFactorCode, isRecoveryCode: false, model.RememberMachine);
             }
 
-            return View(model);
-
-            /*
-            var errors = GetErrors(ModelState).Select(e => "<li>" + e + "</li>");
-            return new ResultVM
-            {
-                Status = ResultStatus.Error,
-                Message = "Invalid data",
-                Data = string.Join("", errors)
-            };
-            */
+            return results;
         }
 
         [HttpPost]
-        public async Task<ResultVM> LoginWithRecovery([FromBody] TwoFactorRecoveryCodeLoginDetails model)
+        public async Task<StatusBuilder> LoginWithRecovery(TwoFactorRecoveryCodeLoginDetails model)
         {
-            if (ModelState.IsValid)
+            var results = this.HandleModelState();
+
+            if (results.IsSuccessful) 
             {
-                return await TwoFaLogin(model.RecoveryCode, isRecoveryCode: true);
+                results = await _twoFactorService.TwoFaLogin(model.RecoveryCode, isRecoveryCode: true);
             }
 
-            var errors = GetErrors(ModelState).Select(e => "<li>" + e + "</li>");
-            return new ResultVM
-            {
-                Status = ResultStatus.Error,
-                Message = "Invalid data",
-                Data = string.Join("", errors)
-            };
+            return results;
         }
 
         [HttpGet]
@@ -171,65 +131,5 @@ namespace Formula.SimpleMembership
         {
             return Ok(EncryptProvider.CreateAesKey().Key);
         }
-
-        #region Private methods
-
-        private async Task<ResultVM> TwoFaLogin(string code, bool isRecoveryCode, bool rememberMachine = false)
-        {
-            SignInResult result = null;
-
-            var user = await _twoFactorService.GetSignInManager().GetTwoFactorAuthenticationUserAsync();
-
-            if (user == null)
-            {
-                return new ResultVM
-                {
-                    Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = "<li>Unable to load two-factor authentication user</li>"
-                };
-            }
-
-            var authenticatorCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
-
-            if (!isRecoveryCode)
-            {
-                result = await _twoFactorService.GetSignInManager().TwoFactorAuthenticatorSignInAsync(authenticatorCode, true,
-                    rememberMachine);
-            }
-            else
-            {
-                result = await _twoFactorService.GetSignInManager().TwoFactorRecoveryCodeSignInAsync(authenticatorCode);
-            }
-
-            if (result.Succeeded)
-            {
-                return new ResultVM
-                {
-                    Status = ResultStatus.Success,
-                    Message = $"Welcome {user.UserName}"
-                };
-            }
-            else if (result.IsLockedOut)
-            {
-                return new ResultVM
-                {
-                    Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = "<li>Account locked out</li>"
-                };
-            }
-            else
-            {
-                return new ResultVM
-                {
-                    Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = $"<li>Invalid {(isRecoveryCode ? "recovery" : "authenticator")} code</li>"
-                };
-            }
-        }
-
-        #endregion
     }
 }

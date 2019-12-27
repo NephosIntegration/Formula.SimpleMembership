@@ -14,18 +14,6 @@ namespace Formula.SimpleMembership
         protected readonly AppUserManager _userManager;
         protected readonly SignInManager<ApplicationUser> _signInManager;
 
-        /// Delete These : Begin
-        public AppUserManager GetUserManager()
-        {
-            return _userManager;
-        }
-
-        public SignInManager<ApplicationUser> GetSignInManager()
-        {
-            return _signInManager;
-        }
-        /// Delete These : End
-
         public MembershipAccountService(
             AppUserManager userManager,
             SignInManager<ApplicationUser> signInManager)

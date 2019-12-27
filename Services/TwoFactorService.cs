@@ -165,7 +165,70 @@ namespace Formula.SimpleMembership
             return output;
         }
 
+        public async Task<StatusBuilder> GenerateRecoveryCodes(ClaimsPrincipal principal)
+        {
+            var output = new StatusBuilder();
 
+            var user = await _userManager.GetUserAsync(principal);
+
+            var isTwoFactorEnabled = await _userManager.GetTwoFactorEnabledAsync(user);
+
+            if (isTwoFactorEnabled)
+            {
+                var recoveryCodes = await _userManager.GenerateNewTwoFactorRecoveryCodesAsync(user, 10);
+                
+                output.SetMessage("You have generated new recovery codes")
+                      .SetData(recoveryCodes.ToList());
+            }
+            else
+            {
+                output.RecordFailure("Cannot generate recovery codes as you do not have 2FA enabled");
+            }
+
+            return output;
+        }
+
+        public async Task<StatusBuilder> TwoFaLogin(string code, bool isRecoveryCode, bool rememberMachine = false)
+        {
+            var output = new StatusBuilder();
+
+            var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
+
+            if (user == null)
+            {
+                output.RecordFailure("Unable to load two-factor authentication user");
+            }
+            else
+            {
+                var authenticatorCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
+
+                SignInResult result = null;
+
+                if (!isRecoveryCode)
+                {
+                    result = await _signInManager.TwoFactorAuthenticatorSignInAsync(authenticatorCode, true, rememberMachine);
+                }
+                else
+                {
+                    result = await _signInManager.TwoFactorRecoveryCodeSignInAsync(authenticatorCode);
+                }
+
+                if (result.Succeeded)
+                {
+                    output.SetMessage($"Welcome {user.UserName}");
+                }
+                else if (result.IsLockedOut)
+                {
+                    output.RecordFailure("Account locked out");
+                }
+                else
+                {
+                    output.RecordFailure($"Invalid {(isRecoveryCode ? "recovery" : "authenticator")} code");
+                }
+            }
+
+            return output;
+        }
 
 
 
