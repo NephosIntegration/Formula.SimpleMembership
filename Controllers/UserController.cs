@@ -1,9 +1,8 @@
 using System;
 using System.Linq;
-using System.Security.Claims;
 using System.Threading.Tasks;
-using Microsoft.AspNetCore.Authentication;
-using Microsoft.AspNetCore.Authentication.Cookies;
+using Formula.Core;
+using Formula.SimpleAPI;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
@@ -11,127 +10,57 @@ using Microsoft.AspNetCore.Mvc;
 namespace Formula.SimpleMembership
 {
     [Route("[controller]/[action]")]
-    public class UserController : Controller {
-        private readonly UserManager<ApplicationUser> _userManager;
-        private readonly SignInManager<ApplicationUser> _signInManager;
+    public class UserController : SimpleControllerBase 
+    {
+        private MembershipAccountService _accountService;
 
-        public UserController (UserManager<ApplicationUser> userManager, SignInManager<ApplicationUser> signInManager) {
-            _userManager = userManager;
-            _signInManager = signInManager;
+        public UserController (AppUserManager userManager, SignInManager<ApplicationUser> signInManager) {
+            _accountService = new MembershipAccountService(userManager, signInManager);
         }
 
         [HttpPost]
-        public async Task<ResultVM> Register ([FromBody] RegisterVM model) {
-            if (ModelState.IsValid) {
-                IdentityResult result = null;
-                var user = await _userManager.FindByNameAsync (model.UserName);
+        public async Task<StatusBuilder> Login ([FromBody] LoginDetails model) 
+        {
+            var results = this.HandleModelState();
 
-                if (user != null) {
-                    return new ResultVM {
-                    Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = "User already exists"
-                    };
-                }
-
-                user = new ApplicationUser {
-                    Id = Guid.NewGuid ().ToString (),
-                    UserName = model.UserName,
-                    Email = model.Email
-                };
-
-                result = await _userManager.CreateAsync (user, model.Password);
-
-                if (result.Succeeded) {
-                    if (model.StartFreeTrial) {
-                        Claim trialClaim = new Claim ("Trial", DateTime.Now.ToString ());
-                        await _userManager.AddClaimAsync (user, trialClaim);
-                    } else if (model.IsAdmin) {
-                        await _userManager.AddToRoleAsync (user, "Admin");
-                    }
-
-                    return new ResultVM {
-                        Status = ResultStatus.Success,
-                            Message = "User Created",
-                            Data = user
-                    };
-                } else {
-                    var resultErrors = result.Errors.Select (e => "" + e.Description + "");
-                    return new ResultVM {
-                        Status = ResultStatus.Error,
-                            Message = "Invalid data",
-                            Data = string.Join ("", resultErrors)
-                    };
-                }
+            if (results.IsSuccessful) 
+            {
+                results = await _accountService.LoginAsync(model);
             }
 
-            var errors = ModelState.Keys.Select (e => "" + e + "");
-            return new ResultVM {
-                Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = string.Join ("", errors)
-            };
+            return results;
         }
 
         [HttpPost]
-        public async Task<ResultVM> Login ([FromBody] LoginVM model) {
-            if (ModelState.IsValid) {
-                var user = await _userManager.FindByNameAsync(model.UserName);
+        public async Task<StatusBuilder> Register ([FromBody] RegistrationDetails model) 
+        {
+            var results = this.HandleModelState();
 
-                if (user != null && await _userManager.CheckPasswordAsync(user, model.Password)) {
-
-                    await _signInManager.PasswordSignInAsync(model.UserName, model.Password, true, lockoutOnFailure : false);
-
-                    return new ResultVM {
-                        Status = ResultStatus.Success,
-                            Message = "Succesfull login",
-                            Data = model
-                    };
-                }
-
-                return new ResultVM {
-                    Status = ResultStatus.Error,
-                        Message = "Invalid data",
-                        Data = "Invalid Username or Password"
-                };
+            if (results.IsSuccessful) 
+            {
+                results = await _accountService.RegisterAsync(model);
             }
 
-            var errors = ModelState.Keys.Select (e => "" + e + "");
-            return new ResultVM {
-                Status = ResultStatus.Error,
-                    Message = "Invalid data",
-                    Data = string.Join ("", errors)
-            };
+            return results;
         }
 
         [HttpGet]
         [Authorize]
-        public async Task<UserClaims> Claims () {
-            var loggedInUser = await _userManager.GetUserAsync (User);
-            var userClaims = await _userManager.GetClaimsAsync(loggedInUser);
-
-            var claims = userClaims.Union(User.Claims).Select (c => new ClaimVM {
-                Type = c.Type,
-                    Value = c.Value
-            });
-
-            return new UserClaims {
-                UserName = User.Identity.Name,
-                    Claims = claims
-            };
+        public Task<UserClaims> Claims() 
+        {
+            return _accountService.GetClaimsAsync(User);
         }
 
         [HttpGet]
-        public async Task<UserStateVM> Authenticated () {
-            return new UserStateVM {
-                IsAuthenticated = User.Identity.IsAuthenticated,
-                    Username = User.Identity.IsAuthenticated ? User.Identity.Name : string.Empty
-            };
+        public AuthenticationDetails Authenticated()
+        {
+            return _accountService.GetAuthenticationDetails(User);
         }
 
         [HttpPost]
-        public async Task SignOut () {
-            await _signInManager.SignOutAsync ();
+        public Task SignOut() 
+        {
+            return _accountService.SignOutAsync();
         }
     }
 }

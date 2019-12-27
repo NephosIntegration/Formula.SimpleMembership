@@ -5,9 +5,9 @@ using System.Threading.Tasks;
 
 namespace Formula.SimpleMembership
 {
-    public class ClaimVM
+    public class UserClaims
     {
-        public string Type { get; set; }
-        public string Value { get; set; }
+        public IEnumerable<ClaimDetails> Claims { get; set; }
+        public string UserName { get; set; }
     }
 }

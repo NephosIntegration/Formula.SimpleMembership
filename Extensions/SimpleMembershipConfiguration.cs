@@ -49,8 +49,9 @@ namespace Formula.SimpleMembership
                 });
             }
 
-            services.AddIdentity<ApplicationUser, IdentityRole> ()
-                .AddEntityFrameworkStores<SimpleMembershipDbContext> ()
+            services.AddIdentity<ApplicationUser, IdentityRole>()
+                .AddEntityFrameworkStores<SimpleMembershipDbContext>()
+                .AddUserManager<AppUserManager>()
                 .AddDefaultTokenProviders();
 
 /*
