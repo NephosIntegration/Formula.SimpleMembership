@@ -17,17 +17,19 @@ using SignInResult = Microsoft.AspNetCore.Identity.SignInResult;
 namespace Formula.SimpleMembership
 {
     [Route("[controller]/[action]")]
-    public class TwoFactorAuthenticationController : SimpleControllerBase
+    public class TwoFactorController : SimpleControllerBase
     {
 
         private TwoFactorService _twoFactorService;
 
-        public TwoFactorAuthenticationController(
+        public TwoFactorController(
             AppUserManager userManager,
             SignInManager<ApplicationUser> signInManager, 
-            UrlEncoder urlEncoder)
+            UrlEncoder urlEncoder,
+            IEmailSender emailSender,
+            ISmsSender smsSender)
         {
-            _twoFactorService = new TwoFactorService(userManager, signInManager, urlEncoder);
+            _twoFactorService = new TwoFactorService(userManager, signInManager, urlEncoder, emailSender, smsSender);
         }
 
         [HttpGet]
@@ -59,7 +61,7 @@ namespace Formula.SimpleMembership
 
             if (results.IsSuccessful) 
             {
-                results = await _twoFactorService.VerifyAuthenticationCode(User, code);
+                results = await _twoFactorService.VerifyAuthenticatorCode(User, code);
                 if (results.IsSuccessful)
                 {
                     var recoveryCodes = results.GetDataAs<List<String>>();

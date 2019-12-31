@@ -9,12 +9,12 @@ using Microsoft.AspNetCore.Identity;
 
 namespace Formula.SimpleMembership
 {
-    public class MembershipAccountService
+    public class MembershipService
     {
         protected readonly AppUserManager _userManager;
         protected readonly SignInManager<ApplicationUser> _signInManager;
 
-        public MembershipAccountService(
+        public MembershipService(
             AppUserManager userManager,
             SignInManager<ApplicationUser> signInManager)
         {
@@ -25,24 +25,17 @@ namespace Formula.SimpleMembership
         public virtual async Task<StatusBuilder> LoginAsync(LoginDetails details)
         {
             var output = new StatusBuilder();
+            var results = new LoginResults();
 
-            var user = await _userManager.FindByNameAsync(details.Username);
+            results.User = await _userManager.FindByNameAsync(details.Username);
 
-            if (user != null) {
+            if (results.User != null) {
 
-                // Return the user info to the calling procedure
-                output.SetData(user);
-
-                var passwordValid = await _userManager.CheckPasswordAsync(user, details.Password);
+                var passwordValid = await _userManager.CheckPasswordAsync(results.User, details.Password);
 
                 if (passwordValid)
                 {
-                    var signInResult = await _signInManager.PasswordSignInAsync(details.Username, details.Password, true, lockoutOnFailure : false);
-
-                    if (signInResult.Succeeded == false)
-                    {
-                        output.RecordFailure("Problem signing in");
-                    }                    
+                    results.Result = await _signInManager.PasswordSignInAsync(details.Username, details.Password, true, lockoutOnFailure : false);
                 }
                 else
                 {
@@ -56,6 +49,8 @@ namespace Formula.SimpleMembership
                 output.RecordFailure("Invalid Username or Password");
             }
 
+            output.SetData(results);
+            
             return output;
         }
 

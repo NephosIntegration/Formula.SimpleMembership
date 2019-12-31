@@ -10,6 +10,8 @@ using Formula.Core;
 using Microsoft.AspNetCore.Authentication;
 using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc.ModelBinding;
+using Microsoft.AspNetCore.Mvc.Rendering;
+using Microsoft.Extensions.Logging;
 
 namespace Formula.SimpleMembership
 {
@@ -18,6 +20,8 @@ namespace Formula.SimpleMembership
         protected readonly AppUserManager _userManager;
         protected readonly SignInManager<ApplicationUser> _signInManager;
         private readonly UrlEncoder _urlEncoder;
+        private readonly IEmailSender _emailSender;
+        private readonly ISmsSender _smsSender;
 
 
         /// Delete These : Begin
@@ -35,11 +39,15 @@ namespace Formula.SimpleMembership
         public TwoFactorService(
             AppUserManager userManager,
             SignInManager<ApplicationUser> signInManager,
-            UrlEncoder urlEncoder)
+            UrlEncoder urlEncoder,
+            IEmailSender emailSender,
+            ISmsSender smsSender)
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _urlEncoder = urlEncoder;
+            _emailSender = emailSender;
+            _smsSender = smsSender;
         }
 
         public async Task<AccountDetails> GetAccountDetailsAsync(ClaimsPrincipal principal)
@@ -82,8 +90,13 @@ namespace Formula.SimpleMembership
             return validCodes;
         }
 
+        public Task<SignInResult> TwoFactorSignInAsync(VerifyCodeViewModel model)
+        {
+            return _signInManager.TwoFactorSignInAsync(model.Provider, model.Code, model.RememberMe, model.RememberBrowser);
+        }
+
         // The data returned by the status builder upon success is any available recovery codes
-        public async Task<StatusBuilder> VerifyAuthenticationCode(ClaimsPrincipal principal, VerificationCodeDetails code)
+        public async Task<StatusBuilder> VerifyAuthenticatorCode(ClaimsPrincipal principal, VerificationCodeDetails code)
         {
             var output = new StatusBuilder();
 
@@ -188,18 +201,24 @@ namespace Formula.SimpleMembership
             return output;
         }
 
+        public Task<SignInResult> TwoFaLogin(VerifyAuthenticatorCodeViewModel model)
+        {
+            return _signInManager.TwoFactorAuthenticatorSignInAsync(model.Code, model.RememberMe, model.RememberBrowser);
+        }
+
+        public Task<SignInResult> TwoFaRecovery(UseRecoveryCodeViewModel model)
+        {
+            return _signInManager.TwoFactorRecoveryCodeSignInAsync(model.Code);
+        }
+
         public async Task<StatusBuilder> TwoFaLogin(string code, bool isRecoveryCode, bool rememberMachine = false)
         {
-            var output = new StatusBuilder();
+            var output = await Validate2faUser();
 
-            var user = await _signInManager.GetTwoFactorAuthenticationUserAsync();
-
-            if (user == null)
+            if (output.IsSuccessful)
             {
-                output.RecordFailure("Unable to load two-factor authentication user");
-            }
-            else
-            {
+                var user = output.GetDataAs<ApplicationUser>();
+                
                 var authenticatorCode = code.Replace(" ", string.Empty).Replace("-", string.Empty);
 
                 SignInResult result = null;
@@ -231,7 +250,64 @@ namespace Formula.SimpleMembership
         }
 
 
+        public async Task<StatusBuilder> Validate2faUser()
+        {
+            var output = new StatusBuilder();
 
+            var user = await  _signInManager.GetTwoFactorAuthenticationUserAsync();
+            if (user == null)
+            {
+                output.RecordFailure("Unable to load two-factor authentication user");
+            }
+            else
+            {
+                output.SetData(user);
+            }
+
+            return output;
+        }
+
+        public async Task<StatusBuilder> GetOptions(string returnUrl = null, bool rememberMe = false)
+        {
+            var output = await Validate2faUser();
+
+            if (output.IsSuccessful)
+            {
+                var user = output.GetDataAs<ApplicationUser>();
+                var userFactors = await _userManager.GetValidTwoFactorProvidersAsync(user);
+                var factorOptions = userFactors.Select(purpose => new SelectListItem { Text = purpose, Value = purpose }).ToList();
+                output.SetData(new SendCodeViewModel { Providers = factorOptions, ReturnUrl = returnUrl, RememberMe = rememberMe });
+            }
+
+            return output;
+        }
+
+        public async Task<StatusBuilder> SendToken(ApplicationUser user, SendCodeViewModel model)
+        {
+            var output = new StatusBuilder();
+
+            // Generate the token and send it
+            var code = await _userManager.GenerateTwoFactorTokenAsync(user, model.SelectedProvider);
+            if (string.IsNullOrWhiteSpace(code))
+            {
+                output.RecordFailure("Unable to generate token");
+            }
+            else
+            {
+                var message = "Your security code is: " + code;
+
+                if (model.SelectedProvider == "Email")
+                {
+                    await _emailSender.SendEmailAsync(await _userManager.GetEmailAsync(user), "Security Code", message);
+                }
+                else if (model.SelectedProvider == "Phone")
+                {
+                    await _smsSender.SendSmsAsync(await _userManager.GetPhoneNumberAsync(user), message);
+                }            
+            }
+
+            return output;
+        }
 
 
 

@@ -54,6 +54,11 @@ namespace Formula.SimpleMembership
                 .AddUserManager<AppUserManager>()
                 .AddDefaultTokenProviders();
 
+
+            // Add 2fa services.
+            services.AddTransient<IEmailSender, AuthMessageSender>();
+            services.AddTransient<ISmsSender, AuthMessageSender>();
+
 /*
             services.ConfigureApplicationCookie (options => {
                 options.Events.OnRedirectToLogin = context => {

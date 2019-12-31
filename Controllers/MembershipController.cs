@@ -10,12 +10,12 @@ using Microsoft.AspNetCore.Mvc;
 namespace Formula.SimpleMembership
 {
     [Route("[controller]/[action]")]
-    public class UserController : SimpleControllerBase 
+    public class MembershipController : SimpleControllerBase 
     {
-        private MembershipAccountService _accountService;
+        private MembershipService _accountService;
 
-        public UserController (AppUserManager userManager, SignInManager<ApplicationUser> signInManager) {
-            _accountService = new MembershipAccountService(userManager, signInManager);
+        public MembershipController (AppUserManager userManager, SignInManager<ApplicationUser> signInManager) {
+            _accountService = new MembershipService(userManager, signInManager);
         }
 
         [HttpPost]
