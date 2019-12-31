@@ -313,14 +313,14 @@ namespace Formula.SimpleMembership
 
 
 
-        public async Task<TwoFactorAuthDetails> GetAuthenticatorDetailsAsync(ClaimsPrincipal principal)
+        public async Task<TwoFactorAuthDetails> GetAuthenticatorDetailsAsync(ClaimsPrincipal principal, String issuer)
         {
             var user = await _userManager.GetUserAsync(principal);
-            var authenticatorDetails = await GetAuthenticatorDetailsAsync(user);
+            var authenticatorDetails = await GetAuthenticatorDetailsAsync(user, issuer);
             return authenticatorDetails;
         }
 
-        public async Task<TwoFactorAuthDetails> GetAuthenticatorDetailsAsync(ApplicationUser user)
+        public async Task<TwoFactorAuthDetails> GetAuthenticatorDetailsAsync(ApplicationUser user, String issuer)
         {
             // Load the authenticator key & QR code URI to display on the form
             var unformattedKey = await _userManager.GetAuthenticatorKeyAsync(user);
@@ -335,7 +335,7 @@ namespace Formula.SimpleMembership
             return new TwoFactorAuthDetails
             {
                 SharedKey = FormatKey(unformattedKey),
-                AuthenticatorUri = GenerateQrCodeUri(email, unformattedKey)
+                AuthenticatorUri = GenerateQrCodeUri(email, issuer, unformattedKey)
             };
         }
 
@@ -353,16 +353,16 @@ namespace Formula.SimpleMembership
                 result.Append(unformattedKey.Substring(currentPosition));
             }
 
-            return result.ToString().ToLowerInvariant();
+            return result.ToString();
         }
 
-        private string GenerateQrCodeUri(string email, string unformattedKey)
+        private string GenerateQrCodeUri(string email, string issuer, string unformattedKey)
         {
             const string AuthenticatorUriFormat = "otpauth://totp/{0}:{1}?secret={2}&issuer={0}&digits=6";
 
             return string.Format(
                 AuthenticatorUriFormat,
-                _urlEncoder.Encode("ASP.NET Core Identity"),
+                _urlEncoder.Encode(issuer),
                 _urlEncoder.Encode(email),
                 unformattedKey);
         }

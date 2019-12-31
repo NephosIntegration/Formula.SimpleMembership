@@ -1,4 +1,5 @@
 using System.Linq;
+using System.Text.Encodings.Web;
 using System.Threading.Tasks;
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Identity;
@@ -11,6 +12,8 @@ namespace Formula.SimpleMembership
     [Authorize]
     public class ManageController : Controller
     {
+        private TwoFactorService _twoFactorService;
+
         private readonly UserManager<ApplicationUser> _userManager;
         private readonly SignInManager<ApplicationUser> _signInManager;
         private readonly IEmailSender _emailSender;
@@ -18,8 +21,9 @@ namespace Formula.SimpleMembership
         private readonly ILogger _logger;
 
         public ManageController(
-        UserManager<ApplicationUser> userManager,
+        AppUserManager userManager,
         SignInManager<ApplicationUser> signInManager,
+        UrlEncoder urlEncoder,
         IEmailSender emailSender,
         ISmsSender smsSender,
         ILoggerFactory loggerFactory)
@@ -29,6 +33,8 @@ namespace Formula.SimpleMembership
             _emailSender = emailSender;
             _smsSender = smsSender;
             _logger = loggerFactory.CreateLogger<ManageController>();
+
+            _twoFactorService = new TwoFactorService(userManager, signInManager, urlEncoder, emailSender, smsSender);
         }
 
         //
@@ -45,6 +51,8 @@ namespace Formula.SimpleMembership
                 : message == ManageMessageId.RemovePhoneSuccess ? "Your phone number was removed."
                 : "";
 
+            var twoFaDetails = await _twoFactorService.GetAuthenticatorDetailsAsync(HttpContext.User, HttpContext.Request.Host.Value);
+
             var user = await GetCurrentUserAsync();
             var model = new IndexViewModel
             {
@@ -53,7 +61,8 @@ namespace Formula.SimpleMembership
                 TwoFactor = await _userManager.GetTwoFactorEnabledAsync(user),
                 Logins = await _userManager.GetLoginsAsync(user),
                 BrowserRemembered = await _signInManager.IsTwoFactorClientRememberedAsync(user),
-                AuthenticatorKey = await _userManager.GetAuthenticatorKeyAsync(user)
+                AuthenticatorKey = twoFaDetails.SharedKey, // await _userManager.GetAuthenticatorKeyAsync(user)
+                AuthenticatorUri = twoFaDetails.AuthenticatorUri,
             };
             return View(model);
         }

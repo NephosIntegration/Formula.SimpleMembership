@@ -16,5 +16,7 @@ namespace Formula.SimpleMembership
         public bool BrowserRemembered { get; set; }
 
         public string AuthenticatorKey { get; set; }
+        
+        public string AuthenticatorUri { get; set; }
     }
 }

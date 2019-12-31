@@ -43,7 +43,7 @@ namespace Formula.SimpleMembership
         [Authorize]
         public Task<TwoFactorAuthDetails> SetupAuthenticator()
         {
-            return _twoFactorService.GetAuthenticatorDetailsAsync(User);
+            return _twoFactorService.GetAuthenticatorDetailsAsync(User, Request.Host.Value);
         }
 
         [HttpGet]
